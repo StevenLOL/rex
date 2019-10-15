@@ -16,8 +16,8 @@ import archr
 from tracer import TracerPoV, TinyCore
 
 from .exploit import CannotExploit, CannotExplore, ExploitFactory, CGCExploitFactory
-from .vulnerability import Vulnerability
-from .enums import CrashInputType
+from .common.vulnerability import Vulnerability
+from .common.enums import CrashInputType
 from .preconstrained_file_stream import SimPreconstrainedFileStream
 
 
