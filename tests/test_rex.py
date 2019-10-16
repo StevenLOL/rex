@@ -11,7 +11,7 @@ import logging
 import archr
 import rex
 import colorguard
-from rex.vulnerability import Vulnerability
+from rex.common.vulnerability import Vulnerability
 from angr.state_plugins.trace_additions import FormatInfoStrToInt, FormatInfoDontConstrain
 from rex.exploit.cgc.type1.cgc_type1_shellcode_exploit import CGCType1ShellcodeExploit
 from nose.plugins.attrib import attr
@@ -251,7 +251,7 @@ def test_linux_network_stacksmash_64():
                                    ipv4_address="127.0.0.1",
                                    tcp_ports=(port,)).build().start() as target:
         crash = rex.Crash(target, inp, rop_cache_path=os.path.join(cache_location, 'network_overflow_64'), aslr=False,
-                          input_type=rex.enums.CrashInputType.TCP, port=port)
+                          input_type=rex.common.enums.CrashInputType.TCP, port=port)
 
         exploit = crash.exploit()
         crash.project.loader.close()
