@@ -30,6 +30,7 @@ setup(
             'angrop',
             'compilerex',
             'archr',
+            'jinja2',
       ],
       dependency_links=[
           'git+ssh://git@github.com/mechaphish/compilerex#egg=compilerex',
@@ -37,4 +38,7 @@ setup(
           'git+ssh://git@github.com/angr/archr#egg=archr',
           'git+ssh://git@github.com/angr/tracer#egg=tracer',
       ],
+      package_data={
+          'rex': ['rex/scripter/templates/*']
+      }
 )

